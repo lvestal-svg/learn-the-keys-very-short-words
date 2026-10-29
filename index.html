@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Learn the Words! — Typing Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg1:#ffe8f1; --bg2:#e7f4ff;
+    --primary:#2563eb;
+    --left:#2563eb;    /* BLUE for LEFT hand */
+    --right:#ef4444;   /* RED  for RIGHT hand (includes Y) */
+    --neutral:#8b5cf6; /* FINAL round color */
+    --accent: var(--left);
+    --ok:#16a34a;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; display:grid; place-items:center;
+    font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+    background:
+      radial-gradient(1200px 800px at 10% 10%, var(--bg1), transparent 60%),
+      radial-gradient(1200px 800px at 90% 90%, var(--bg2), transparent 60%),
+      linear-gradient(135deg,#fff,#fbfbff);
+    color:#222;
+  }
+  .card{
+    width:min(920px,92vw);
+    min-height:min(640px,92vh);
+    background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,.12);
+    padding:clamp(16px,3vw,32px); position:relative; overflow:hidden;
+  }
+  h1{margin:0 0 .4rem; font-size:clamp(28px,4vw,40px)}
+  .sub{opacity:.7; margin:0 0 1rem}
+  .row{display:grid; gap:16px}
+  .start-row{grid-template-columns:1fr auto; align-items:center; margin-top:12px}
+  input[type="text"]{font:inherit; padding:12px 14px; border-radius:12px; border:2px solid #e6e7ef; outline:none; width:100%}
+  input[type="text"]:focus{border-color:var(--primary); box-shadow:0 0 0 4px rgba(37,99,235,.12)}
+  button{font:inherit; background:var(--primary); color:#fff; border:none; padding:12px 20px; border-radius:14px; cursor:pointer; transition:transform .06s, box-shadow .2s; box-shadow:0 8px 22px rgba(37,99,235,.25)}
+  button:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(37,99,235,.32)}
+
+  #greeting{font-size:clamp(22px,3.2vw,28px); opacity:0; animation:dissolve 1100ms ease forwards}
+  @keyframes dissolve{0%{opacity:0;filter:blur(6px);transform:translateY(8px) scale(.98)}100%{opacity:1;filter:blur(0);transform:translateY(0) scale(1)}}
+
+  #message{font-size:clamp(18px,2.4vw,22px); margin:6px 0 4px; min-height:1.4em}
+  #countdown{font-weight:800; letter-spacing:1px; font-size:clamp(36px,7vw,64px); min-height:1.1em; line-height:1.1}
+  .pop{animation:pop .45s ease forwards}
+  @keyframes pop{0%{opacity:0;transform:translateY(10px) scale(.85)}40%{opacity:1;transform:translateY(0) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+  #letter{
+    font-weight:900; font-size:clamp(50px,9vw,100px);
+    color:var(--accent); text-transform:lowercase; line-height:1.2; margin:.2em 0 .1em; letter-spacing:3px; overflow-wrap:anywhere;
+  }
+  #letter .typed{color:var(--ok)}
+  #letter .pending{color:var(--accent)}
+  #letter .active{ text-decoration:underline; text-decoration-thickness:5px; text-underline-offset:10px }
+  #score{font-weight:700; color:var(--ok)}
+  #hud{display:flex; gap:24px; justify-content:center; align-items:center; min-height:52px; margin-top:6px}
+
+  #hand{font-size:clamp(54px,10vw,100px); display:inline-block; margin:10px 0 0; animation:sway 1s ease-in-out infinite alternate}
+  @keyframes sway{from{transform:translateX(-14px) rotate(-6deg)} to{transform:translateX(14px) rotate(6deg)}}
+
+  /* Full-screen confetti overlay */
+  #confetti{
+    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    width:100%; height:100%;
+  }
+
+  /* Progress ring */
+  #progressWrap{ position: relative; width: 72px; height: 72px; }
+  #progressSvg{ width: 72px; height: 72px; display:block; }
+  #progressTrack{ stroke: #e8eaf6; }
+  #progressCircle{ stroke: var(--accent); transition: stroke-dashoffset .35s linear; }
+  #timer{ position:absolute; inset:0; display:grid; place-items:center; font-weight:800; font-size: 20px; color:#111; }
+
+  /* Inter-round scoreboard with NEXT button */
+  #interstitial{
+    position:absolute; inset:0; display:none; place-items:center; text-align:center;
+    background: rgba(255,255,255,.85);
+    padding: 20px;
+  }
+  #scoreBox{
+    background: linear-gradient(135deg, #ff7eb3, #65c7f7 60%, #7afcff);
+    color:#fff; border-radius: 20px; box-shadow: 0 12px 36px rgba(0,0,0,.18);
+    padding: 22px 26px; min-width:min(560px, 94vw); border: 4px solid rgba(255,255,255,.6);
+  }
+  #scoreTitle{ font-size: clamp(22px,2.8vw,28px); margin-bottom: 10px; text-shadow:0 2px 8px rgba(0,0,0,.2) }
+  #scoreLines{ font-size: clamp(18px,2.2vw,22px); line-height: 1.35; margin-bottom:14px; text-shadow:0 1px 6px rgba(0,0,0,.18)}
+  #nextBtn{
+    font-size: clamp(20px,2.4vw,24px);
+    padding: 14px 24px; border-radius: 16px; border: none;
+    background: #ffffff; color: #111; cursor: pointer;
+    box-shadow: 0 10px 26px rgba(0,0,0,.2);
+  }
+
+  /* Final summary */
+  #finalSummary{ display:none; text-align:left; margin-top:18px }
+  #finalSummary h3{ margin:.2rem 0 .6rem }
+  #finalSummary ul{ margin:0; padding-left:1.1rem }
+  #finalSummary li{ margin:.25rem 0 }
+
+  .center{text-align:center}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+  <div class="card" id="app">
+    <!-- Start Screen -->
+    <div id="startScreen">
+      <h1>Learn the Words! 🎈</h1>
+      <p class="sub">Type short words with your left hand, right hand, and both hands!</p>
+      <div class="row start-row">
+        <input id="playerName" type="text" placeholder="Type your name…" autocomplete="off" />
+        <!-- inline fallback makes Start always work -->
+        <button id="startBtn" type="button" onclick="window.__start && window.__start()">Start</button>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="hidden center">
+      <div id="greeting" class="center"></div>
+      <div id="hand" aria-hidden="true"></div>
+      <div id="message"></div>
+      <div id="countdown"></div>
+      <div id="letter" aria-live="assertive"></div>
+
+      <div id="hud">
+        <!-- Progress Ring (timed rounds only) -->
+        <div id="progressWrap" class="hidden" aria-hidden="true">
+          <svg id="progressSvg" viewBox="0 0 120 120">
+            <circle id="progressTrack" cx="60" cy="60" r="54" stroke-width="12" fill="none"/>
+            <circle id="progressCircle" cx="60" cy="60" r="54" stroke-width="12" fill="none"
+                    stroke-linecap="round" transform="rotate(-90 60 60)" />
+          </svg>
+          <div id="timer">30</div>
+        </div>
+        <div id="score"></div>
+      </div>
+
+      <!-- Inter-round scoreboard overlay -->
+      <div id="interstitial">
+        <div id="scoreBox">
+          <div id="scoreTitle"></div>
+          <div id="scoreLines"></div>
+          <button id="nextBtn" type="button">NEXT ▶</button>
+        </div>
+      </div>
+
+      <!-- Final summary + play again -->
+      <div id="finalSummary">
+        <h3>Scores</h3>
+        <ul id="summaryList"></ul>
+        <div style="margin-top:12px" class="center">
+          <button id="playAgainBtn" type="button">Play Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const qs = s => document.querySelector(s);
+  const sleep = ms => new Promise(resolve => setTimeout(resolve,ms));
+  const shuffle = values => {
+    const result = [...values];
+    for (let i=result.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [result[i],result[j]]=[result[j],result[i]];
+    }
+    return result;
+  };
+  const root=document.documentElement;
+  const nameInput=qs('#playerName'), startBtn=qs('#startBtn');
+  const startScreen=qs('#startScreen'), gameScreen=qs('#gameScreen');
+  const greeting=qs('#greeting'), hand=qs('#hand'), message=qs('#message');
+  const countdown=qs('#countdown'), wordEl=qs('#letter'), scoreEl=qs('#score');
+  const interstitial=qs('#interstitial'), scoreTitle=qs('#scoreTitle');
+  const scoreLines=qs('#scoreLines'), nextBtn=qs('#nextBtn');
+  const finalSummary=qs('#finalSummary'), summaryList=qs('#summaryList');
+  const playAgainBtn=qs('#playAgainBtn');
+  const progressWrap=qs('#progressWrap'), progressCircle=qs('#progressCircle');
+  const timerLabel=qs('#timer');
+
+  // Every word in the left/right banks uses ONLY keys assigned to that hand.
+  // The both-hands words each use letters from BOTH hand zones.
+  const LEFT_WORDS=['sad','sat','saw','rat','fat','far','tag','cab','wet','red','bed','bad','bag','gas','face'];
+  const RIGHT_WORDS=['you','him','hip','hop','lip','pin','mom','pop','oil','ill','hill','pill','lump','in','on'];
+  const BOTH_WORDS=['the','and','dog','sun','run','fun','cup','bug','map','pen'];
+  const ROUNDS=[
+    {label:'Left practice',hand:'👈',msg:'Use your LEFT hand to type each word.',color:'left',bank:LEFT_WORDS,timed:false,scored:false,confetti:true},
+    {label:'Right practice',hand:'👉',msg:'Use your RIGHT hand to type each word.',color:'right',bank:RIGHT_WORDS,timed:false,scored:false,confetti:true},
+    {label:'Left 30s',hand:'👈',msg:'30-second LEFT hand word challenge!',color:'left',bank:LEFT_WORDS,timed:true,scored:true},
+    {label:'Right 30s',hand:'👉',msg:'30-second RIGHT hand word challenge!',color:'right',bank:RIGHT_WORDS,timed:true,scored:true},
+    {label:'Final: both hands',hand:'👐',msg:'Final round: type 10 words using BOTH hands!',color:'neutral',bank:BOTH_WORDS,timed:false,scored:true,confetti:true}
+  ];
+  let playerName='Player', roundIndex=0, queue=[], word='', position=0;
+  let accepting=false, transitioning=false, started=false;
+  let correctWords=0, attempts=0, correctLetters=0;
+  let timerId=null, deadline=0, nextListener=null;
+  const stats=[];
+
+  const canvas=qs('#confetti'), ctx=canvas.getContext('2d');
+  let bits=[], confettiAnim=null;
+  function resizeCanvas(){canvas.width=innerWidth;canvas.height=innerHeight;}
+  addEventListener('resize',resizeCanvas); resizeCanvas();
+  function burstConfetti(durationMs=1500,count=200){
+    resizeCanvas();bits=[];
+    const colors=['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#B983FF','#FF8FAB'];
+    for(let i=0;i<count;i++)bits.push({
+      x:Math.random()*innerWidth,y:-10,r:4+Math.random()*6,
+      c:colors[Math.floor(Math.random()*colors.length)],
+      vx:-3+Math.random()*6,vy:2+Math.random()*3,ay:.08+Math.random()*.08,
+      rot:Math.random()*Math.PI*2,vr:-.25+Math.random()*.5
+    });
+    const start=performance.now();
+    cancelAnimationFrame(confettiAnim);
+    function frame(t){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      bits.forEach(p=>{
+        p.vy+=p.ay;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;
+        ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+        ctx.fillStyle=p.c;
+        ctx.fillRect(-p.r,-p.r,p.r*2,p.r*2*(.6+Math.abs(Math.sin(p.rot))*.8));
+        ctx.restore();
+      });
+      bits=bits.filter(p=>p.y<canvas.height+20);
+      if(t-start<durationMs)confettiAnim=requestAnimationFrame(frame);
+    }
+    confettiAnim=requestAnimationFrame(frame);
+  }
+  const circumference=2*Math.PI*54;
+  progressCircle.style.strokeDasharray=String(circumference);
+  function setRing(remaining,total){
+    progressCircle.style.strokeDashoffset=String(circumference*(1-Math.max(0,Math.min(1,remaining/total))));
+    timerLabel.textContent=String(Math.ceil(remaining));
+  }
+  function setAccent(color){
+    const css={'left':'--left','right':'--right','neutral':'--neutral'};
+    root.style.setProperty('--accent',getComputedStyle(root).getPropertyValue(css[color]).trim());
+  }
+  async function showCountdown(){
+    for(const value of ['3','2','1','GO!']){
+      countdown.textContent=value;
+      countdown.classList.remove('pop');void countdown.offsetWidth;
+      countdown.classList.add('pop');
+      await sleep(800);
+      if(value!=='GO!')countdown.textContent='';
+      await sleep(100);
+    }
+    countdown.textContent='';
+  }
+  function drawWord(){
+    wordEl.replaceChildren();
+    for(let i=0;i<word.length;i++){
+      const span=document.createElement('span');
+      span.textContent=word[i];
+      span.className=i<position?'typed':i===position?'pending active':'pending';
+      wordEl.appendChild(span);
+    }
+  }
+  function nextWord(){
+    const round=ROUNDS[roundIndex];
+    if(queue.length===0){
+      if(!round.timed){finishRound();return;}
+      queue=shuffle(round.bank);
+    }
+    word=queue.shift();position=0;drawWord();
+  }
+  function stopTimer(){if(timerId!==null){clearInterval(timerId);timerId=null;}}
+  function startTimer(){
+    deadline=performance.now()+30000;
+    setRing(30,30);
+    timerId=setInterval(()=>{
+      const left=Math.max(0,(deadline-performance.now())/1000);
+      setRing(left,30);
+      if(left<=0)finishRound();
+    },60);
+  }
+  async function startRound(index){
+    roundIndex=index;
+    const round=ROUNDS[index];
+    accepting=false;transitioning=false;
+    setAccent(round.color);
+    finalSummary.style.display='none';
+    hand.textContent=round.hand;
+    message.textContent=round.msg;
+    scoreEl.textContent=round.scored?'Words: 0':'';
+    progressWrap.classList.toggle('hidden',!round.timed);
+    correctWords=0;attempts=0;correctLetters=0;
+    queue=shuffle(round.bank);
+    word='';position=0;wordEl.replaceChildren();
+    await showCountdown();
+    nextWord();
+    // If the round has ended during setup, don't start a timer.
+    if(!transitioning){
+      if(round.timed)startTimer();
+      accepting=true;
+    }
+  }
+  function awaitNext(){
+    interstitial.style.display='grid';
+    return new Promise(resolve=>{
+      nextListener=()=>{
+        interstitial.style.display='none';
+        nextBtn.removeEventListener('click',nextListener);
+        nextListener=null;resolve();
+      };
+      nextBtn.addEventListener('click',nextListener);
+    });
+  }
+  async function finishRound(){
+    if(transitioning)return;
+    transitioning=true;accepting=false;stopTimer();
+    wordEl.replaceChildren();
+    const round=ROUNDS[roundIndex];
+    const accuracy=attempts?Math.round(correctLetters/attempts*100):0;
+    if(round.scored)stats.push({label:round.label,words:correctWords,accuracy});
+    if(round.confetti){hand.textContent='';burstConfetti(1600,260);await sleep(1200);}
+    if(roundIndex===ROUNDS.length-1){renderFinalSummary();return;}
+    if(round.scored){
+      scoreTitle.textContent=`Hey ${playerName}, check out your score!`;
+      scoreLines.innerHTML=`<div><strong>Words completed:</strong> ${correctWords}</div><div><strong>Letter accuracy:</strong> ${accuracy}%</div>`;
+      await awaitNext();
+    }
+    await startRound(roundIndex+1);
+  }
+  document.addEventListener('keydown',event=>{
+    if(!accepting||transitioning||event.repeat||event.ctrlKey||event.metaKey||event.altKey)return;
+    const key=event.key.toLowerCase();
+    if(!/^[a-z]$/.test(key))return;
+    // A letter in a word is counted as an attempt (including mistakes).
+    attempts++;
+    if(key===word[position]){
+      correctLetters++;position++;
+      if(position===word.length){
+        correctWords++;
+        if(ROUNDS[roundIndex].scored)scoreEl.textContent=`Words: ${correctWords}`;
+        nextWord();
+      }else drawWord();
+    }else{
+      wordEl.style.transform='scale(.94)';
+      setTimeout(()=>{wordEl.style.transform='scale(1)';},100);
+    }
+  });
+  function renderFinalSummary(){
+    progressWrap.classList.add('hidden');
+    hand.textContent='';countdown.textContent='';
+    message.textContent=`🎉 Great job, ${playerName}!`;
+    summaryList.replaceChildren();
+    for(const stat of stats){
+      const li=document.createElement('li');
+      li.textContent=`${stat.label}: ${stat.words} words, ${stat.accuracy}% letter accuracy`;
+      summaryList.appendChild(li);
+    }
+    finalSummary.style.display='block';
+    scoreEl.textContent='';
+    burstConfetti(2000,320);
+  }
+  async function startFlow(){
+    if(started)return;
+    started=true;
+    playerName=(nameInput.value||'Player').trim()||'Player';
+    startScreen.classList.add('hidden');gameScreen.classList.remove('hidden');
+    stats.length=0;
+    greeting.textContent=`Hi, ${playerName}!`;
+    greeting.style.opacity='0';
+    greeting.style.animation='none';void greeting.offsetWidth;
+    greeting.style.animation='dissolve 1100ms ease forwards';
+    await sleep(1200);
+    greeting.style.transition='opacity .5s ease';greeting.style.opacity='0';
+    await sleep(520);greeting.textContent='';
+    await startRound(0);
+  }
+  window.__start=startFlow;
+  startBtn.addEventListener('click',startFlow);
+  nameInput.addEventListener('keydown',event=>{if(event.key==='Enter')startFlow();});
+  playAgainBtn.addEventListener('click',()=>{
+    if(!transitioning)return;
+    stats.length=0;
+    finalSummary.style.display='none';
+    message.textContent='';scoreEl.textContent='';
+    startRound(0);
+  });
+});
+</script>
+</body>
+</html>
